@@ -9,13 +9,13 @@
 
 require_once "MVCPdo.php";
 
-class MVCPdoSql extends MVCPdo
+abstract class MVCPdoSql extends MVCPdo
 {
 
     /**
      * @param PDO $conn
      */
-    protected $conn;
+    protected PDO $conn;
 
     function connect($configs): PDO
     {
@@ -36,6 +36,7 @@ class MVCPdoSql extends MVCPdo
             "email" => $email
         ];
     }
+
 
 }
 

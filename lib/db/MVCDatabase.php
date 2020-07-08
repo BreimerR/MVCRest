@@ -20,14 +20,7 @@ abstract class MVCDatabase
     /**
      * @param object $conn
      */
-    protected $conn;
-
-    /**@var String[] $models */
-    public static array $models = [];
-
-    static MVCDatabase $INSTANCE;
-
-    abstract function __construct($settings = []);
+    protected object $conn;
 
     /**
      * get access to the database and query each model
@@ -38,12 +31,37 @@ abstract class MVCDatabase
      * @param string $email
      * @return MVCDatabase
      */
-    static function getInstance($host, $databaseName, $userName = "root", $password = "", $email = ""): MVCDatabase
+    protected static array $configs = [
+        "host" => "localhost",
+        "databaseName" => "test",
+        "userName" => "root",
+        "password" => "",
+        "email" => null
+    ];
+
+    /**@var String[] $models */
+    public static array $models = [];
+
+    static ?MVCDatabase $INSTANCE = null;
+
+    abstract protected function __construct($settings = []);
+
+    protected function create()
     {
-        return self::$INSTANCE == null ? self::$INSTANCE = new static(static::prepConfigs($host, $databaseName, $userName, $password, $email)) : self::$INSTANCE;
+
+    }
+
+    static function getInstance(): MVCDatabase
+    {
+        return self::$INSTANCE == null ? self::$INSTANCE = new static(static::getConfigs()) : self::$INSTANCE;
     }
 
     abstract static function prepConfigs($host, $databaseName, $userName = "root", $password = "", $email = ""): array;
+
+    static function getConfigs(): array
+    {
+        return static::$configs;
+    }
 
     static function generateModelsSql(): array
     {
@@ -52,12 +70,21 @@ abstract class MVCDatabase
         /**@var Model $model */
         foreach (static::$models as $model) {
 
-            $sql = $model::generateSql();
+            $sql = $model::getCreateSql();
 
             array_push($SQLs, $sql);
         }
 
         return $SQLs;
+    }
+
+    static function getConfig($config): string
+    {
+        if (isset(static::$configs[$config]))
+            return static::$configs[$config];
+
+        if (isset(self::$configs[$config]))
+            return self::$configs[$config];
     }
 
 

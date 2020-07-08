@@ -11,7 +11,7 @@ class MVCSql extends MVCDatabase
 {
 
 
-    public function __construct($settings = [])
+    protected function __construct($settings = [])
     {
         $this->conn = mysqli_connect($settings["host"], $settings['userName'], $settings['password']);
         // Check connection
@@ -20,5 +20,16 @@ class MVCSql extends MVCDatabase
             die("Connection failed: " . mysqli_connect_error());
         }
         echo "Connected successfully";
+    }
+
+    static function prepConfigs($host, $databaseName, $userName = "root", $password = "", $email = ""): array
+    {
+        return [
+            "host" => $host,
+            "databaseName" => $databaseName,
+            "userName" => $userName,
+            "password" => $password,
+            "email" => $email,
+        ];
     }
 }

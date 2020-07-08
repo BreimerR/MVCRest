@@ -7,7 +7,7 @@
  * Time: 6:53 PM
  */
 
-class MVCPdoSql extends MVCPdo
+abstract class MVCPdoSql extends MVCPdo
 {
 
     function connect($configs): PDO
@@ -18,8 +18,8 @@ class MVCPdoSql extends MVCPdo
 
     static function prepConfigs($host, $databaseName, $userName = "root", $password = "", $email = ""): array
     {
-       return [
+        return [
 
-       ];
+        ];
     }
 }

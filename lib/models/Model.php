@@ -24,10 +24,11 @@ abstract class Model
 
     private array $columns;
 
-    protected function __construct()
+    protected function __construct($conn = null)
     {
-        $conn = Chama::getInstance();
+        $this->conn = $conn ?: Chama::getInstance();
     }
+
 
     static function getInstance()
     {
@@ -55,7 +56,7 @@ abstract class Model
         return str_check_end_replace_with($plural, ["ies", "s"], ["y", ""]);
     }
 
-    static function generateSql()
+    static function getCreateSql()
     {
         $sql = "CREATE TABLE ";
 

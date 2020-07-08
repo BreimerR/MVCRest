@@ -12,6 +12,13 @@ require_once "../models/GroupsModel.php";
 class Chama extends MVCPdoSql
 {
 
+    protected static array $configs = [
+        "host" => "localhost",
+        "dbName" => "chama",
+        "userName" => "root",
+        "password" => ""
+    ];
+
     /**TODO
      * The order in which this
      * tables are created is important for
@@ -26,8 +33,4 @@ class Chama extends MVCPdoSql
     ];
 
 
-
 }
-
-$SQLs = Chama::generateModelsSql();
-var_dump($SQLs);
