@@ -57,12 +57,12 @@ abstract class MVCPdo extends MVCDatabase
     }
 
     /**
-     * @param Exception $e
+     * @param PDOException $e
      * @param null $message
      * @return bool
-     * @throws Exception
+     * @throws PDOException
      */
-    function handleException(Exception $e, $message = null)
+    function handleError(PDOException $e, $message = null)
     {
         switch (self::$ERROR_LEVEL) {
             case self::$LIGHT_ERRORS:
@@ -80,23 +80,23 @@ abstract class MVCPdo extends MVCDatabase
      * @param $keys
      * @param $values
      * @param null|bool $countsValidation
+     * @param null $kc
+     * @param null $vc
      * @return bool
-     * @throws Exception
      */
-    public function bind($preparedStatement, $keys, $values, $countsValidation = null)
+    public function bind($preparedStatement, $keys, $values, $countsValidation = null, $kc = null, $vc = null)
     {
-        $countsValidation = $countsValidation == null ? count($keys) == count($values) : $countsValidation;
+        $countsValidation = $countsValidation == null ? ($kc = count($keys)) == ($vc = count($values)) : $countsValidation;
 
         try {
             if ($countsValidation) {
                 /** @noinspection PhpStatementHasEmptyBodyInspection */
                 for ($i = 0; $i < count($values); $preparedStatement->bindParam($keys[$i], $values[$i]), $i++) ;
             } else {
-                // should throw an error
+                $this->handleError(new PDOException("Bind Keys and Bind values count do not match keys count = $kc values count =$vc"));
             }
         } catch (PDOException $e) {
-            /** @noinspection PhpUnhandledExceptionInspection */
-            $this->handleException($e);
+            $this->handleError($e);
         }
 
         $this->_preparedStatement = $preparedStatement;
@@ -109,14 +109,26 @@ abstract class MVCPdo extends MVCDatabase
         $this->_preparedStatement = $this->conn->prepare($sql);
     }
 
-    function query($sql = null, $binds = [])
+    /**
+     * @param $sql
+     * @param array $bindKeys
+     * @param array $bindValues
+     * @return bool|void
+     * @throws PDOException
+     */
+    function query($sql, $bindKeys = [], $bindValues = [])
     {
         if ($this->conn == null) {
-            $this->error = "Database not instantiated.";
+            $this->handleError(new PDOException("Database not instantiated. Because " . $this->error));
             return false;
         }
 
-        !empty($this->_sql) ?: ($this->_sql = $sql)($this->_sql = $this->prepare($this->_sql));
+        try {
+            $this->prepare($sql);
+            $this->bind($this->_preparedStatement, $bindKeys, $bindValues);
+        } catch (PDOException $e) {
+            $this->handleError($e);
+        }
 
         return $this->execute();
     }
@@ -411,14 +423,14 @@ abstract class MVCPdo extends MVCDatabase
         return $items;
     }
 
-
     function execute()
     {
         try {
-            $this->_preparedStatement->execute();
+            return $this->_preparedStatement->execute();
         } catch (PDOException $e) {
-            $this->error = "sql = " . $this->sql . "\n" . $e->getMessage();
+            $this->handleError(new PDOException("sql = " . $this->sql . "\n" . $e->getMessage()));
         }
+        return null;
     }
 
     public function __call($action, $arguments)
@@ -431,13 +443,11 @@ abstract class MVCPdo extends MVCDatabase
 
             call_user_func_array([$this, "_$action"], $arguments);
 
-            $this->bindPreparedStatement();
-
-            $this->execute();
-
-            $this->query($this->_preparedSql, $this->_bindKeys, $this->_bindValues);
+            return $this->query($this->_preparedSql, $this->_bindKeys, $this->_bindValues);
 
         }
+
+        return null;
 
     }
 

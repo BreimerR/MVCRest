@@ -23,6 +23,7 @@ abstract class MVCDatabase
      */
     protected $conn;
 
+    protected $results = null;
     /**
      * get access to the database and query each model
      * @param string $host
