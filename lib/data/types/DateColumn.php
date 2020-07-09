@@ -9,7 +9,7 @@
 
 require_once "WithDefault.php";
 
-class Date extends Type
+class DateColumn extends Column
 {
 
 
@@ -18,16 +18,17 @@ class Date extends Type
      * need to add a check action in the sql to check if
      * this date is greater than the max value
      */
-    private string $maxSize;
+    private ?string $minDate;
 
     use WithDefault {
         appendToSql as withDefaultAppend;
     }
 
-    public function __construct($name, $maxSize, $primary = false, string $default = null, $nullable = false, $unique = false)
+
+    public function __construct($name = "date", $minDate = null, $primary = false, string $default = null, $nullable = false, $unique = false)
     {
         parent::__construct($name, $primary, $default, $nullable);
-        $this->maxSize = $maxSize;
+        $this->minDate = $minDate;
         $this->unique = $unique;
 
     }

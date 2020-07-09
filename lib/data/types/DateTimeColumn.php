@@ -7,8 +7,9 @@
  * Time: 9:41 PM
  */
 
-class DateTime extends Date
+class DateTimeColumn extends DateColumn
 {
+
 
     static function now(string $format = "Y m d h:m:i:sA"): string
     {

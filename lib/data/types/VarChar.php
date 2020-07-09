@@ -8,7 +8,7 @@
  */
 
 
-require_once "Type.php";
+require_once "Column.php";
 
 /**
  * CREATE TABLE users(
@@ -17,7 +17,7 @@ require_once "Type.php";
  */
 require_once "Common.php";
 
-class VarChar extends Type
+class VarChar extends Column
 {
     /*col_name VARCHAR(200) PRIMARY_KEY*/
     use Common {

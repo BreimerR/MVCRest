@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Created by PhpStorm.
  * Author: Breimer
@@ -6,7 +7,6 @@
  * Date: 6/28/20
  * Time: 1:38 PM
  */
-
 abstract class MVCDatabase
 {
 
@@ -17,10 +17,11 @@ abstract class MVCDatabase
      * 4. if it fails to create throw no database connection available
      * 5. instanciate $conn
      */
+
     /**
      * @param object $conn
      */
-    protected object $conn;
+    protected $conn;
 
     /**
      * get access to the database and query each model
@@ -45,11 +46,6 @@ abstract class MVCDatabase
     static ?MVCDatabase $INSTANCE = null;
 
     abstract protected function __construct($settings = []);
-
-    protected function create()
-    {
-
-    }
 
     static function getInstance(): MVCDatabase
     {

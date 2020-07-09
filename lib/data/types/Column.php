@@ -7,7 +7,7 @@
  * Date: 6/26/20
  * Time: 7:25 PM
  */
-abstract class Type
+abstract class Column
 {
 
     public string $name;

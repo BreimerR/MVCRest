@@ -8,9 +8,9 @@
  */
 
 require_once "functions.php";
-require_once "Type.php";
+require_once "Column.php";
 
-abstract class CompoundType
+abstract class Table
 {
 
     /**
@@ -56,7 +56,7 @@ abstract class CompoundType
     public function validateSetColumns(array $data)
     {
 
-        /**@var CompoundType $self */
+        /**@var Table $self */
         $self = static::class;
 
         $fields = $self::getTableColumns();
@@ -87,22 +87,26 @@ abstract class CompoundType
      * @param $columnName
      * @param string $parentModel
      * @param array $changeValues
-     * @return Type|null
+     * @return Column|null
      * @throws MissingPrimaryKeyException
      */
-    /**@private should be internal
+    /**
+     * TODO register onInsertAction
+     * @private should be internal
      * @param $columnName
      * @param string $parentTable
      * @param string|null $childColName
+     * @param callable[]
+     * $callbacks ["onInsert"=>callable]
      * @param array $changeValues
-     * @return Type
+     * @return Column
      * @throws MissingPrimaryKeyException
      */
-    public static function registerForeignKey($columnName, string $parentTable, string $childColName = null, ...$changeValues): Type
+    public static function registerForeignKey($columnName, string $parentTable, string $childColName = null, $callbacks = [], ...$changeValues): Column
     {
-        /**@var CompoundType $parentTable */
+        /**@var Table $parentTable */
 
-        /**@var Type[] $cols */
+        /**@var Column[] $cols */
         $cols = $parentTable::getTableColumns();
 
         foreach ($cols as $column) {
@@ -207,15 +211,15 @@ abstract class CompoundType
      * @param $columnName
      * @param string $relativeTable
      * @param array $changeValues
-     * @return Type|null
+     * @return Column|null
      * @throws MissingPrimaryKeyException
      */
     // should return the primary key of this table it's type etc
-    public static function dependency($columnName, string $relativeTable, ...$changeValues): ?Type
+    public static function dependency($columnName, string $relativeTable, ...$changeValues): ?Column
     {
-        /**@var CompoundType $relativeTable */
+        /**@var Table $relativeTable */
 
-        /**@var Type[] $cols */
+        /**@var Column[] $cols */
         $cols = self::getTableColumns();
 
         foreach ($cols as $column) {
@@ -233,9 +237,9 @@ abstract class CompoundType
     }
 
     /**@throws MissingColumnException */
-    public static function getCol($name): Type
+    public static function getCol($name): Column
     {
-        /**@var Type[] */
+        /**@var Column[] */
         $columns = self::getTableColumns();
         foreach ($columns as $column) {
             if ($column->name == $name) {

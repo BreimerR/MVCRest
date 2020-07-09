@@ -60,7 +60,7 @@ abstract class Model
     {
         $sql = "CREATE TABLE ";
 
-        /**@var CompoundType $table */
+        /**@var Table $table */
         $table = static::getDataClass();
 
         $tableName = static::getTableName();
@@ -69,7 +69,7 @@ abstract class Model
 
         $columns = $table::getTableColumns();
 
-        $cols = array_map(function (Type $col) {
+        $cols = array_map(function (Column $col) {
             return $col->getSql();
         }, $columns);
 

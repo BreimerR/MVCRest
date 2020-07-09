@@ -12,6 +12,12 @@ require_once "Common.php";
 class Integer extends Number
 {
     use Common;
+}
 
-
+class ID extends Integer
+{
+    public function __construct(string $name = "id", $primary = true, $default = null, $nullable = false)
+    {
+        parent::__construct($name, true, $default, $nullable);
+    }
 }

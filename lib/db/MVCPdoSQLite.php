@@ -7,7 +7,7 @@
  * Time: 6:53 PM
  */
 
-abstract class MVCPdoSql extends MVCPdo
+abstract class MVCPdoSqlLite extends MVCPdo
 {
 
     function connect($configs): PDO

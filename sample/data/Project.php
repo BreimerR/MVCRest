@@ -7,11 +7,11 @@
  * Time: 7:25 PM
  */
 
-class Project extends CompoundType
+class Project extends Table
 {
     /**
      * @param string $name
-     * @param Date $date
+     * @param DateColumn $date
      * @param int $group
      * @param int $creator
      * @param int $documentation
@@ -27,7 +27,7 @@ class Project extends CompoundType
         $name = new VarChar("name", 150);
 
         return [
-            new Date("date", ""),
+            new DateColumn("date", ""),
             new VarChar("name", 255, "John Doe"),
             new Integer("group", 255),
             self::registerForeignKey("entity", Entity::class),

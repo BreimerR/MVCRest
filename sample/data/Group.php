@@ -7,7 +7,7 @@
  * Time: 5:06 AM
  */
 
-class Group extends CompoundType
+class Group extends Table
 {
     static function initColumns(): array
     {

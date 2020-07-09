@@ -9,82 +9,270 @@
 
 require_once "MVCDatabase.php";
 require_once "SQLStubs.php";
+require_once "DbTemplate.php";
+require_once "Json.php";
 
 
 /**
- * @method select()
+ * Contains actions relating to the specified
+ * database and creating tables is not part of it's
+ * job
+ * TODO sort out depending on arguments count?
+ * @method select($tableName, $items, $where, $extras = [])
+ * @method update(string $tableName, array $set, array $where)
+ * @method insert($tableName, $items)
+ * @method create($tableName, $columns)
+ * @method delete($tableName, $where)
+ * @method drop($tableName)
+ * @method dropTable($tableName)
+ * @method truncate($tableName)
+ * // $action ="DROP"
+ * @method alter($tableName, $action)
  * @property array|false|mixed|string|null error
  * @property array|string|string[]|null sql
+ * @property array|string|string[]|null preparedSql
  * @property bool hasError
  */
 abstract class MVCPdo extends MVCDatabase
 {
 
+    public static int $ERROR_LEVEL = 1;
 
-    use SQLStubs;
+    public static int $LIGHT_ERRORS = 1;
 
-    /**
-     * @param PDO $conn
-     */
-    protected object $conn;
-    // current sql table
-    protected string $table;
-    // current created sql
-    /**
-     * sql changes before any new execution
-     */
-    protected ?string $_sql = null;
+    protected ?array $_extras = null;
 
-    protected ?string $_sqlStatement = null;
+    use DbTemplate;
 
-    /**@var PDOStatement|null $preparedStatement */
-    protected ?PDOStatement $preparedStatement = null;
-
-    private array $_bindValues = [];
-
-    private array $_constraints = [];
-
-    private array $_errors = [];
-
-    use OnCreateCallBack;
-
-    use OnDestroyCallBack;
-
-    protected $preparedSql = null;
-    /**
-     * the value of the row that has been affected
-     * most recently
-     */
-    protected $lastUpdatedId = null;
-
-
-    abstract function connect($configs): PDO;
-
-    protected function __construct($settings = [])
+    function cleanUp()
     {
-        try {
-            $this->conn = $this->connect(static::getConfigs());
-        } catch (PDOException $e) {
-            /*TODO handle this better*/
-            switch ($code = $e->getCode()) {
-                case  1049:
-                    // db does not exist
-                    createDatabase();
-                    break;
-                case  2002:
-                    // db connection refused
-                    echo "Failed to get access to  provided host ";
-                    break;
-                default:
-                    echo $e->getMessage();
-            }
+        $this->_bindValues = [];
+        $this->_bindKeys = [];
+        $this->_errors = [];
+        $this->_extras = null;
+        $this->_sql = null;
+        $this->_preparedSql = null;
+        $this->_preparedStatement = null;
+
+    }
+
+    /**
+     * @param Exception $e
+     * @param null $message
+     * @return bool
+     * @throws Exception
+     */
+    function handleException(Exception $e, $message = null)
+    {
+        switch (self::$ERROR_LEVEL) {
+            case self::$LIGHT_ERRORS:
+                $this->error = $message ?: $e->getMessage();
+                return false;
+                break;
+            default:
+                throw $e;
+
         }
     }
 
     /**
-     * @param $table
-     * @return mixed
+     * @param $preparedStatement
+     * @param $keys
+     * @param $values
+     * @param null|bool $countsValidation
+     * @return bool
+     * @throws Exception
      */
+    public function bind($preparedStatement, $keys, $values, $countsValidation = null)
+    {
+        $countsValidation = $countsValidation == null ? count($keys) == count($values) : $countsValidation;
+
+        try {
+            if ($countsValidation) {
+                /** @noinspection PhpStatementHasEmptyBodyInspection */
+                for ($i = 0; $i < count($values); $preparedStatement->bindParam($keys[$i], $values[$i]), $i++) ;
+            } else {
+                // should throw an error
+            }
+        } catch (PDOException $e) {
+            /** @noinspection PhpUnhandledExceptionInspection */
+            $this->handleException($e);
+        }
+
+        $this->_preparedStatement = $preparedStatement;
+
+        return $this->hasError;
+    }
+
+    public function prepare($sql)
+    {
+        $this->_preparedStatement = $this->conn->prepare($sql);
+    }
+
+    function query($sql = null, $binds = [])
+    {
+        if ($this->conn == null) {
+            $this->error = "Database not instantiated.";
+            return false;
+        }
+
+        !empty($this->_sql) ?: ($this->_sql = $sql)($this->_sql = $this->prepare($this->_sql));
+
+        return $this->execute();
+    }
+
+    protected function prepareSql()
+    {
+        $this->prepare($this->_preparedSql);
+    }
+
+    public function bindPreparedStatement()
+    {
+        $this->prepareSql();
+        $this->bind($this->_preparedStatement, $this->_bindKeys, $this->_bindValues, true);
+    }
+
+    public function _update($table, $set, $where)
+    {
+        $i = 0;
+        $cols = [];
+
+        foreach ($set as $name => $value) {
+            $key = ":key_$i";
+            array_push($this->_bindValues, $value);
+            array_push($this->_bindKeys, $key);
+            array_push($cols, "$name = $key");
+
+            $i += 1;
+        }
+
+        $this->_preparedSql .= " `$table` SET " . implode(",", $cols);
+
+        $this->prepWheres($where);
+
+        $this->_preparedSql .= "--";
+    }
+
+    function prepWheres($wheres)
+    {
+        [$wheres] = $this->breaker($wheres);
+
+        $this->_preparedSql .= " WHERE " . implode(" ", $wheres);
+    }
+
+    /**
+     * DELETE FROM tableName WHERE wheres
+     * @param $table
+     * @param true|array $wheres
+     */
+    public function _delete($table, $where)
+    {
+        $this->_preparedSql .= "FROM `$table`";
+
+        $this->prepWheres($where);
+
+        $this->_preparedSql .= "--";
+    }
+
+    /**
+     * TODO % is  bound wrong it should not be part of the value when binding
+     * SELECT * FROM `users` WHERE name LIKE value%
+     * @param $table
+     * @param $items
+     * @param $where
+     * @param array $extras
+     */
+    public function _select($table, $items, $where, $extras = [])
+    {
+        $items = is_string($items) ? explode(",", $items) : $items;
+
+        $columns = implode('`,`', $items);
+
+        $columns = trim($columns);
+
+        $this->_preparedSql .= ($columns == "*" ? "*" : "`$columns`") . " FROM `$table`";
+
+        $this->prepWheres($where);
+
+        $this->_preparedSql .= " " . implode(" ", $extras);
+
+        $this->_preparedSql .= "--";
+    }
+
+    public function prepareInsertValues($items)
+    {
+
+        return array_map(function ($values) {
+            $i = count($this->_bindValues);
+
+            $keys = [];
+
+            foreach ($values as $value) {
+                $key = ":key_$i";
+                array_push($this->_bindKeys, $key);
+                // null is not accounted for.
+                array_push($this->_bindValues, $value);
+                array_push($keys, $key);
+                $i += 1;
+            }
+
+            return "(" . implode(",", $keys) . ")";
+        }, array_values($items));
+
+    }
+
+    /**
+     * INSERT INTO tableName SET (column[,..]) VALUES values,values,values
+     * $keyValues = [
+     *      "columnName" => values["value", "value"],
+     *      "column2Name" => values["value2", "value2"]
+     * ];
+     */
+    public function _insert($table, $items)
+    {
+        $columns = is_array($items) ? array_keys($items) : $items;
+
+        $values = $this->prepareInsertValues($items);
+
+        $columns = implode('`,`', $columns);
+
+        $columns = trim($columns);
+
+        $this->_preparedSql .= "INTO `$table` (`$columns`) VALUES \n" . implode(",\n", $values) . "--";
+
+    }
+
+    function createDrop($table)
+    {
+        $this->_preparedSql .= "TABLE `$table`";
+    }
+
+    public function _create($table, $columns, $constraints = [], $indices = [])
+    {
+        $this->createDrop($table);
+
+        $constraints = count($constraints) > 0 ? "," . implode(",", $constraints) : "";
+        $this->_preparedSql .= "(" .
+            implode(",", $columns) .
+            $constraints .
+            ");";
+
+    }
+
+    public function _drop($table)
+    {
+        $this->createDrop($table);
+
+        $this->_preparedSql .= "--";
+    }
+
+    public function _dropTable($table, $ifExists = false)
+    {
+        $this->_preparedSql = "DROP TABLE ";
+
+        $this->_preparedSql .= ($ifExists ? "IF EXISTS " : "") . "`$table`" . "--";
+    }
+
     function lastUpdatedId($table)
     {
         $db = self::getInstance();
@@ -95,10 +283,10 @@ abstract class MVCPdo extends MVCDatabase
     }
 
     /**
-     * @param null $merg
+     * @param object|null $class
      * @return array
      */
-    function fetchAllObject($merg = null)
+    function fetchAllObject($class = null)
     {
 
         $this->_assoc = $this->fetchAll();
@@ -106,163 +294,10 @@ abstract class MVCPdo extends MVCDatabase
         $ObjArray = array();
 
         foreach ($this->_assoc as $item) {
-            array_push($ObjArray, new ArrayO($item));
+            //  array_push($ObjArray, new ArrayO($item));
         }
 
         return $ObjArray;
-    }
-
-    /**
-     * @return mixed
-     */
-    function fetchAll()
-    {
-        try {
-            return $this->_assoc = $this->preparedStatement->fetchAll();
-        } catch (PDOException $e) {
-            $this->addError($e);
-            return [];
-        }
-    }
-
-    protected function addError($error)
-    {
-        array_push($this->_errors, $error);
-    }
-
-    /**
-     * @param $table
-     * @param array|string $where string = "col/=/value"
-     * @param $items
-     * @param string $extras what to put after the sql statement.
-     * @return bool
-     */
-    function _select($table, $where = [], $items, $extras = '')
-    {
-        $this->select($table, $where, $items, $extras);
-
-        return !$this->errorExists();
-    }
-
-    /**
-     * @return bool
-     */
-    function errorExists()
-    {
-        return !StringO::isEmpty($this->_err) || !StringO::isEmpty($this->_error);
-    }
-
-    function fetch()
-    {
-
-    }
-
-    /**
-     * @return mixed
-     */
-    function fetchAssoc()
-    {
-        return $this->fetchAll();
-    }
-
-    /**
-     * @return mixed
-     */
-    function fetchObject()
-    {
-        return $this->_res->fetchObject();
-    }
-
-    /**
-     * @param null $structure
-     * @return mixed
-     */
-    function first($structure = null)
-    {
-        $res = $this->_res->fetchAll();
-
-        return $res[0];
-    }
-
-    /**
-     * @param $success
-     * @param $fail
-     * @param null $data
-     * @return mixed
-     */
-    function onExec($success, $fail, $data = null)
-    {
-        return ($this->_exec) ? $success($data) : $fail($this->_error);
-    }
-
-    /**
-     * @param $dbname
-     */
-    function deletedb($dbname)
-    {
-        // TODO: Implement deletedb() method.
-    }
-
-    /**
-     * @param $table
-     */
-    function deleteTable($table)
-    {
-        $this->prepare("DELETE TABLE :key_0");
-
-        $this->bindPreparedStatement([':key_0'], [$table]);
-
-    }
-
-    /**
-     * @param PDOStatement $preparedStatement
-     * @param $keys
-     * @param $values
-     * @return bool
-     */
-    public function bind($preparedStatement, $keys, $values)
-    {
-        try {
-            /** @noinspection PhpStatementHasEmptyBodyInspection */
-
-            for ($i = 0; $i < count($values); $preparedStatement->bindParam($keys[$i], $values[$i]), $i++) ;
-        } catch (PDOException $e) {
-            $this->error = $e->getMessage();
-        }
-
-        $this->preparedStatement = $preparedStatement;
-
-        return $this->hasError;
-    }
-
-    protected function bindPreparedStatement($keys, $values)
-    {
-        return $this->bind($this->preparedStatement, $keys, $values);
-    }
-
-
-    function getLastUpdatedId(): int
-    {
-        return $this->lastUpdatedId;
-    }
-
-    /**
-     * @return bool
-     */
-    function execute()
-    {
-        try {
-            return $this->preparedStatement->execute();
-        } catch (PDOException $e) {
-            $this->error = $e->getMessage() . ' ' . $this->sql;
-        }
-
-        return false;
-    }
-
-    function commit()
-    {
-        $this->conn->commit();
     }
 
     /**
@@ -277,190 +312,39 @@ abstract class MVCPdo extends MVCDatabase
         return (bool)$this->count();
     }
 
+    function commit()
+    {
+        $this->conn->commit();
+    }
+
+
     /**
      * @return mixed
      */
-    function count()
+    function fetchAll()
     {
-        return $this->preparedStatement->rowCount();
-    }
-
-    /**
-     * @param $sql
-     * @param array $values
-     * @return PDOStatement
-     */
-    public function customQuery($sql, $values = [])
-    {
-        $this->_error = $this->_err = '';
-
-        $this->_sql = $sql;
-
-        if ($c = count($values)) {
-            $keys = [];
-
-            /** @noinspection PhpStatementHasEmptyBodyInspection */
-            for ($i = 0; $i < $c; array_push($keys, ":key_$i"), $i++) ;
-
-            $stmnt = $this->conn->prepare($this->_sql);
-
-            /** @noinspection PhpStatementHasEmptyBodyInspection */
-            for ($i = 0; $i < $c; $stmnt->bindParam($keys[$i], $values[$i]), $i++) ;
-
-            return $stmnt;
+        try {
+            return $this->_assoc = $this->preparedStatement->fetchAll();
+        } catch (PDOException $e) {
+            $this->addError($e);
+            return [];
         }
-
-
-        return $this->_sql = $this->conn->prepare($this->_sql);
-    }
-
-    /**
-     * returns bool if error handling is in soft mode
-     * and not exception mode
-     * @param $preparedStatement
-     * @return PDOStatement|bool
-     */
-    function prepare($preparedStatement)
-    {
-        $this->preparedStatement = $preparedStatement;
-        return $this->conn->prepare($preparedStatement);
-    }
-
-
-    /**
-     * @param string|array $items
-     * @return array
-     */
-    function formatItems($items = ""): array
-    {
-        if ($items == "") return [];
-        if (!is_array($items)) $items = explode(',', $items);
-        return $items;
-    }
-
-    /**
-     * stractureSql("select","tableName")
-     * @param $action
-     * @param null $table
-     * @param null $items
-     * @return string
-     */
-    public function prepareSqlStart($action, $table = null, $items = [])
-    {
-        if ($items == null) throw new Error("Last argument(\$items) can not be null");
-
-        $items = implode('`,`', $items);
-
-        $this->_sql = strtoupper($action) . ' ';
-
-        $items = trim($items);
-
-        switch (strtolower($action)) {
-
-            case "insert":
-                return $this->_sql .= " INTO `$table`";
-
-            case "update":
-                return $this->_sql .= " `$table` SET ";
-
-            case "select" || "delete":
-                $this->_sql .= $items == "*" ? "*" : "`$items`";
-
-        }
-
-        return $this->_sql .= " FROM `$table` WHERE ";
-    }
-
-    /**
-     * @param $act
-     * @param array $where
-     * @param null $w
-     * @return bool
-     */
-    private function completeSql($act, $where = [], $w = null)
-    {
-        /**
-         *  UPDATE table_name SET/ `col` = 'value' ,`col` = 'val' WHERE  `col_name` = 'val'--
-         * "SELECT `username`, `password` FROM $table  WHERE/ `username`=`?`--";
-         * "DELETE  FROM $table WHERE / `username` =`?` --";
-         */
-        $a = $this->breaker($where);
-
-        if (count($a) > 2) {
-            [$wheres, $vals, $keys] = $a;
-
-            switch ($act) {
-                case 'insert':
-                    /**
-                     * "INSERT INTO `tableName`(`id`, `item_name`)  /  VALUES (`?`,`?`,`?`)--";
-                     */
-                    $this->_sql .= "(`" . implode($a[3], '`,`') . "`) VALUES(" . implode(',', $keys) . ")";
-
-                    $this->prepare($this->_sql);
-
-                    return $this->bindPreparedStatement($keys, $vals);
-                    break;
-                case "select" || "delete":
-                    /**
-                     * "SELECT/DELETE [items];
-                     */
-                    $this->_sql .= implode(' ', $wheres) . ' ';
-                    break;
-                default:
-                    $this->_sql .= implode(', ', $wheres) . ' ';
-                    break;
-            }
-
-            if ($act == 'update') {
-                $w = $this->breaker($w, count($keys));
-                $this->_sql .= ' WHERE ' . implode(' ', $w[0]);
-
-                $vals = array_merge($vals, $w[1]);
-                $keys = array_merge($keys, $w[2]);
-            }
-
-            if ($this->_constraints) {
-                $this->_sql .= (is_array($this->_constraints)) ? implode(" ", $this->_constraints) : $this->_constraints;
-            }
-            $this->prepare($this->_sql);
-            return $this->bindPreparedStatement($keys, $vals);
-        } else $this->error = json_encode($a);
-
-        return false;
-    }
-
-    private function completeUpdateSql($act, $where = [], $w = [])
-    {
-
-    }
-
-    function query($sql = null)
-    {
-        if ($this->conn == null) {
-            $this->error = "Database not instantiated.";
-            return false;
-        }
-
-        !empty($this->_sql) ?: ($this->_sql = $sql)($this->_sql = $this->conn->prepare($this->_sql));
-
-        return $this->execute();
     }
 
     /**
      * This is meant to handle columnName/operator/columnValue
-     * @param array $items
+     * @param string|array $items
      * @param int $k
      * @return array
      */
     private function breaker($items = [], $k = 0)
     {
-        $params = $where = $ky = $cols = [];
+        $params = $wheres = $keys = [];
 
         $o = ["!=", '=', ">=", "<=", '*', "<>", '<', '>', "BETWEEN", "LIKE", "TRUE", "IS", "IS NOT"];
 
         // make array into an array if it is not an array i.e if a string is provided
         is_array($items) ?: $items = [$items];
-
 
         foreach ($items as $item) {
             /*http://www.facebook.com*/
@@ -471,18 +355,13 @@ abstract class MVCPdo extends MVCDatabase
                 $col = $item[0];
                 $val = $item[2];
 
-                //TODO VERIFY WORKING
                 // rejoin if the / was part of the value
                 for ($i = 3; $i < $count; $i++) {
                     $val .= "/" . $item[$i];
                 }
 
-
-                /*TODO check on this quick fix for better solutions*/
-                // @Solved Had a small problem with the explode thus we had to remove the / item
-                // then at the end we would return the removed required /
                 if (isset($item[3])) {
-                    $vals = array();
+                    $vals = [];
                     for ($i = 2; $i < count($item); $i++) {
                         array_push($vals, $item[$i]);
                     }
@@ -496,99 +375,70 @@ abstract class MVCPdo extends MVCDatabase
                     }
                 }
 
-
                 if ($b) {
-                    array_push($ky, $key = ":key_$k");
-                    array_push($where, "{$col} {$op} $key");
+                    $likes = ["%", "^"];
+                    //TODO repair for ^value%
+                    array_push($this->_bindKeys, $key = ":key_$k");
+                    array_push($wheres, "{$col} {$op} $key");
                     // This is because we are using strings thus null will be '' we need to make NULL valid as an input value
                     array_push($params, $val == '' ? NULL : ($val == 'true' ? TRUE : ($val == 'false' ? FALSE : $val)));
                     array_push($this->_bindValues, $val);
-                    array_push($cols, "{$col}");
+                    // array_push($cols, "{$col}");
+
                     $k++;
                 }
 
 
             } else  $this->error = "Malformed where =" . (is_string($item) ? $item : (is_array($item) ? Json::parse($item) : ''));
         }
-        return array($where, $params, $ky, $cols);
+
+        return array($wheres, $params);
     }
 
     /**
-     * @param $f
-     * @param $arguments
-     * @return bool
+     * $items = "item" | "*" | "item,item1,item2,..." | ["item","item1","item2"]
+     * @param string|array $items
+     * @return array
      */
-    function __call($f, $arguments)
+    function formatItems($items = ""): array
     {
 
-        $f = strtolower($f);
-        // reset values for each query call
-        $this->_bindValues = [];
-        $this->_constraints = [];
+        if (!is_array($items)) {
+            if (is_string($items) && trim($items) == "") return [];
 
-        // reset errors for each query call
-        $this->_errors = [];
+            $items = explode(',', $items);
+        }
+        return $items;
+    }
 
-        // this should throw an exception here for no table name specified
-        $this->prepareSqlStart($f,
-            $table = isset($arguments[0]) ? $arguments[0] : "",
-            $this->formatItems($items = isset($arguments[2]) ? $arguments[2] : [])
-        );
 
-        $this->_constraints = (isset($arguments[3]) ? $arguments[3] : []);
-
-        $where = isset($arguments[1]) ? $arguments[1] : [];
-
-        switch ($f) {
-            case "update":
-                $this->completeSql($f, $where, $items);
-                return $this->query();
-                break;
-            case "select" || "delete" || "insert":
-                $this->completeSql($f, $where);
-                return $this->query();
-                break;
-
-            default:
-                // TODO 'Check if is admin and allow to do more actions';
-                return false;
-                break;
+    function execute()
+    {
+        try {
+            $this->_preparedStatement->execute();
+        } catch (PDOException $e) {
+            $this->error = "sql = " . $this->sql . "\n" . $e->getMessage();
         }
     }
 
-    function __set($name, $value)
+    public function __call($action, $arguments)
     {
-        if ($name == "error") {
-            $this->addError($value);
-        }
-    }
+        $this->cleanUp();
 
-    public function __get($name)
-    {
-        switch ($name) {
-            // returns the last available error
-            case "error":
-                $error = $this->_errors[count($this->_errors) - 1];
-                // unset for other errors.
+        if (method_exists($this, "_$action")) {
 
-                return $error . "<br> SQL = " . $this->sql;
+            $this->_preparedSql = strtoupper($action) . ' ';
 
-            case "errors":
-                return $this->_errors;
+            call_user_func_array([$this, "_$action"], $arguments);
 
-            case "sql":
-                $sql = $this->_sql;
-                for ($i = 0; $i < count($this->_bindValues); $i++) {
-                    $sql = str_replace(":key_$i", $this->_bindValues[$i], $sql);
-                }
-                return $sql;
+            $this->bindPreparedStatement();
 
-            case "hasError":
-                return count($this->_errors);
+            $this->execute();
+
+            $this->query($this->_preparedSql, $this->_bindKeys, $this->_bindValues);
 
         }
 
-        return null;
     }
 
 }

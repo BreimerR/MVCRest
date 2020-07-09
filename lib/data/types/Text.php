@@ -7,7 +7,7 @@
  * Time: 9:29 PM
  */
 
-class Text extends Type
+class Text extends Column
 {
 
     protected function appendToSql(string $sql): string

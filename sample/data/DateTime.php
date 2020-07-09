@@ -3,20 +3,18 @@
  * Created by PhpStorm.
  * Author: Breimer
  * Email : brymher@yahoo.com
- * Date: 6/29/20
- * Time: 5:34 PM
+ * Date: 7/8/20
+ * Time: 3:28 PM
  */
 
-class Entity extends Table
+class DateTime extends Table
 {
 
-    /**@return Column[] */
     static function initColumns(): array
     {
         return [
-            new VarChar("name", 150, null),
-            new Integer("id", true)
+            new ID(),
+            new DateTimeColumn()
         ];
     }
-
 }

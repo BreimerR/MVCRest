@@ -7,9 +7,9 @@
  * Time: 4:54 AM
  */
 
-require_once "Type.php";
+require_once "Column.php";
 
-class Number extends Type
+class Number extends Column
 {
 
     protected function appendToSql(string $sql): string
