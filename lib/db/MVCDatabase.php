@@ -23,7 +23,7 @@ abstract class MVCDatabase
      */
     protected $conn;
 
-    protected $results = null;
+    protected $_results = null;
     /**
      * get access to the database and query each model
      * @param string $host
@@ -48,6 +48,9 @@ abstract class MVCDatabase
 
     abstract protected function __construct($settings = []);
 
+    /**
+     * @return static
+     * */
     static function getInstance(): MVCDatabase
     {
         return self::$INSTANCE == null ? self::$INSTANCE = new static(static::getConfigs()) : self::$INSTANCE;
@@ -59,6 +62,7 @@ abstract class MVCDatabase
     {
         return static::$configs;
     }
+
 
     static function generateModelsSql(): array
     {

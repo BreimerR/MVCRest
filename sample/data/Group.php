@@ -11,8 +11,9 @@ class Group extends Table
 {
     static function initColumns(): array
     {
-      return [
+        return [
+            new Id("entity"),
 
-      ];
+        ];
     }
 }

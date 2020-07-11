@@ -10,7 +10,9 @@
 
 /*if model has no rows throw error*/
 
-/**TODO CREATE TABLE `entities` ()*/
+/**TODO CREATE TABLE `entities` ()
+ * @property bool $hasConnection
+ */
 abstract class Model
 {
 
@@ -18,7 +20,7 @@ abstract class Model
 
     private static $instances = [];
 
-    private $conn = null;
+    public $conn = null;
 
     private static $tableNames = [];
 
@@ -26,10 +28,14 @@ abstract class Model
 
     protected function __construct($conn = null)
     {
-        $this->conn = $conn ?: Chama::getInstance();
+        $this->conn = static::getConnection();
     }
 
+    abstract function getConnection();
 
+    /**
+     * @return static
+     */
     static function getInstance()
     {
 
@@ -102,6 +108,16 @@ abstract class Model
 
     }
 
+    public function __get($name)
+    {
+        switch ($name) {
+            case "hasConnection":
+                return $this->conn->hasConnection;
+                break;
+        }
+
+        return null;
+    }
 }
 
 

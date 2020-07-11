@@ -1,7 +1,7 @@
 <?php
 
+require_once "lib/models/functions.php";
+require_once __DIR__ . '/vendor/autoload.php';
 
-require_once "lib/app/App.php";
-require "sample/db/Chama.php";
 
-$db = Chama::getInstance("localhost", "chama", "root", "");
+$entities = EntitiesModel::getInstance();

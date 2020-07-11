@@ -1,14 +1,10 @@
 <?php
 
-require_once "../../lib/db/MVCPdoSql.php";
-require_once "../models/ProjectsModel.php";
-require_once "../models/EntitiesModel.php";
-require_once "../models/UsersModel.php";
-require_once "../models/GroupsModel.php";
-
 /**
  * @property  Model[] $models
  */
+
+
 class Chama extends MVCPdoSql
 {
 
@@ -32,5 +28,24 @@ class Chama extends MVCPdoSql
         "UsersModel"
     ];
 
+    function onCreate()
+    {
+        $SQLs = static::generateModelsSql();
+
+        foreach ($SQLs as $sql) {
+            if (!$this->query($sql)) throw $this->exception;
+        }
+
+    }
+
+    function onMissingDatabase($dbName)
+    {
+        $this->createDatabase($dbName);
+    }
+
+    function onConnectionFailed($host)
+    {
+
+    }
 
 }

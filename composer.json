@@ -1,0 +1,17 @@
+{
+  "autoload": {
+    "classmap": [
+      "lib/",
+      "lib/app/",
+      "lib/controllers/",
+      "lib/data/",
+      "lib/db/",
+      "lib/models/",
+      "sample/",
+      "sample/models/",
+      "sample/data/",
+      "sample/controllers/",
+      "sample/db/"
+    ]
+  }
+}

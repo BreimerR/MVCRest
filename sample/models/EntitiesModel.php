@@ -8,17 +8,9 @@
  */
 
 
-require_once "../../lib/models/Model.php";
-require_once "../../lib/models/functions.php";
-require_once "../../lib/data/types/functions.php";
-require_once "../../lib/data/types/Table.php";
-require_once "../../lib/data/types/VarChar.php";
-require_once "../../lib/data/types/Number.php";
-require_once "../../lib/data/types/Integer.php";
-require_once "../../lib/data/types/DateColumn.php";
-
-
-class EntitiesModel extends Model
+class EntitiesModel extends ChamaModel
 {
 
 }
+
+$entities = EntitiesModel::getInstance();

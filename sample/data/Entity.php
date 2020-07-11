@@ -15,7 +15,7 @@ class Entity extends Table
     {
         return [
             new VarChar("name", 150, null),
-            new Integer("id", true)
+            new Id("id", true)
         ];
     }
 

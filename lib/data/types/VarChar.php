@@ -15,7 +15,6 @@ require_once "Column.php";
  *      name VARCHAR(size) UNIQUE DEFAULT "" COLLATION ATTRIBUTES NULLABLE AUTO_INCREMENT Virtuality
  * );
  */
-require_once "Common.php";
 
 class VarChar extends Column
 {
@@ -26,15 +25,7 @@ class VarChar extends Column
 
     public string $name;
     public bool $primary = false;
-    public bool $unique = false;
 
-    public function __construct($name, $maxSize = null, string $default = null, $primary = false, $nullable = null, $unique = false)
-    {
-        parent::__construct($name, $primary, $default, $nullable);
-        $this->maxSize = $maxSize;
-        $this->unique = $unique;
-
-    }
 
     protected function appendToSql(string $sql): string
     {

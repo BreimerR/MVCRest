@@ -7,11 +7,6 @@
  * Time: 1:56 PM
  */
 
-require_once "MVCDatabase.php";
-require_once "SQLStubs.php";
-require_once "DbTemplate.php";
-require_once "Json.php";
-
 
 /**
  * Contains actions relating to the specified
@@ -28,28 +23,28 @@ require_once "Json.php";
  * @method truncate($tableName)
  * // $action ="DROP"
  * @method alter($tableName, $action)
- * @property array|false|mixed|string|null error
+ * @property false|mixed|string|null error
+ * @property string|int|null errorCode
+ * @property int|null errorCount
+ * @property boolean hasConnection
+ * @property Throwable|null exception
  * @property array|string|string[]|null sql
  * @property array|string|string[]|null preparedSql
  * @property bool hasError
  */
 abstract class MVCPdo extends MVCDatabase
 {
-
-    public static int $ERROR_LEVEL = 1;
-
-    public static int $LIGHT_ERRORS = 1;
-
     protected ?array $_extras = null;
 
-    use DbTemplate;
+    use PDODbTemplate;
 
     function cleanUp()
     {
         $this->_bindValues = [];
+        $this->_results = null;
         $this->_bindKeys = [];
         $this->_errors = [];
-        $this->_extras = null;
+        $this->_extras = [];
         $this->_sql = null;
         $this->_preparedSql = null;
         $this->_preparedStatement = null;
@@ -58,21 +53,12 @@ abstract class MVCPdo extends MVCDatabase
 
     /**
      * @param PDOException $e
-     * @param null $message
-     * @return bool
+     * @param string:null $message
      * @throws PDOException
      */
     function handleError(PDOException $e, $message = null)
     {
-        switch (self::$ERROR_LEVEL) {
-            case self::$LIGHT_ERRORS:
-                $this->error = $message ?: $e->getMessage();
-                return false;
-                break;
-            default:
-                throw $e;
-
-        }
+        $this->error = $message == null ? $e : new PDOException($message . "\n" . $e->getMessage(), $e->getCode(), $e->getPrevious());
     }
 
     /**
@@ -93,7 +79,7 @@ abstract class MVCPdo extends MVCDatabase
                 /** @noinspection PhpStatementHasEmptyBodyInspection */
                 for ($i = 0; $i < count($values); $preparedStatement->bindParam($keys[$i], $values[$i]), $i++) ;
             } else {
-                $this->handleError(new PDOException("Bind Keys and Bind values count do not match keys count = $kc values count =$vc"));
+                throw new PDOException("Bind Keys and Bind values count do not match keys count = $kc values count =$vc");
             }
         } catch (PDOException $e) {
             $this->handleError($e);
@@ -106,7 +92,14 @@ abstract class MVCPdo extends MVCDatabase
 
     public function prepare($sql)
     {
-        $this->_preparedStatement = $this->conn->prepare($sql);
+        $this->_preparedSql = $sql;
+        $this->_prepare();
+    }
+
+    protected function _prepare()
+    {
+        $this->_preparedStatement = $this->conn->prepare($this->_preparedSql);
+
     }
 
     /**
@@ -118,14 +111,29 @@ abstract class MVCPdo extends MVCDatabase
      */
     function query($sql, $bindKeys = [], $bindValues = [])
     {
+        $this->cleanUp();
+
+        return $this->_query($sql, $bindKeys, $bindValues);
+    }
+
+
+    protected function _use($table)
+    {
+        return $this->_query("use `$table`;");
+    }
+
+    protected function _query($sql, $bindKeys = [], $bindValues = [])
+    {
         if ($this->conn == null) {
-            $this->handleError(new PDOException("Database not instantiated. Because " . $this->error));
+            $this->handleError(new PDOException("Database not instantiated.\n " . $this->error));
             return false;
         }
 
         try {
             $this->prepare($sql);
+
             $this->bind($this->_preparedStatement, $bindKeys, $bindValues);
+
         } catch (PDOException $e) {
             $this->handleError($e);
         }
@@ -239,6 +247,8 @@ abstract class MVCPdo extends MVCDatabase
      *      "columnName" => values["value", "value"],
      *      "column2Name" => values["value2", "value2"]
      * ];
+     * @param $table
+     * @param $items
      */
     public function _insert($table, $items)
     {
@@ -295,24 +305,6 @@ abstract class MVCPdo extends MVCDatabase
     }
 
     /**
-     * @param object|null $class
-     * @return array
-     */
-    function fetchAllObject($class = null)
-    {
-
-        $this->_assoc = $this->fetchAll();
-
-        $ObjArray = array();
-
-        foreach ($this->_assoc as $item) {
-            //  array_push($ObjArray, new ArrayO($item));
-        }
-
-        return $ObjArray;
-    }
-
-    /**
      * @param $table
      * @return bool
      */
@@ -335,12 +327,42 @@ abstract class MVCPdo extends MVCDatabase
      */
     function fetchAll()
     {
-        try {
-            return $this->_assoc = $this->preparedStatement->fetchAll();
-        } catch (PDOException $e) {
-            $this->addError($e);
-            return [];
+        if ($this->_results == null) {
+            try {
+                return $this->_results = $this->_preparedStatement->fetchAll();
+            } catch (PDOException $e) {
+                $this->addError($e);
+            }
         }
+
+        return [];
+    }
+
+
+    /**
+     * @param object|null $class conversion class should implement an interface of our choosing
+     * @return array
+     */
+    function fetchAllObject($class)
+    {
+
+        $this->fetchAll();
+
+        $ObjArray = array();
+
+        foreach ($this->_results as $item) {
+            //  array_push($ObjArray, new $class($item));
+        }
+
+        return $ObjArray;
+    }
+
+    /**
+     * @return mixed
+     */
+    function count()
+    {
+        return $this->_preparedStatement->rowCount();
     }
 
     /**
@@ -407,30 +429,15 @@ abstract class MVCPdo extends MVCDatabase
         return array($wheres, $params);
     }
 
-    /**
-     * $items = "item" | "*" | "item,item1,item2,..." | ["item","item1","item2"]
-     * @param string|array $items
-     * @return array
-     */
-    function formatItems($items = ""): array
-    {
-
-        if (!is_array($items)) {
-            if (is_string($items) && trim($items) == "") return [];
-
-            $items = explode(',', $items);
-        }
-        return $items;
-    }
-
     function execute()
     {
         try {
-            return $this->_preparedStatement->execute();
+            $this->_preparedStatement->execute();
         } catch (PDOException $e) {
-            $this->handleError(new PDOException("sql = " . $this->sql . "\n" . $e->getMessage()));
+            $this->handleError($e);
         }
-        return null;
+
+        return !$this->hasError;
     }
 
     public function __call($action, $arguments)

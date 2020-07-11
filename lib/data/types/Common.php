@@ -7,7 +7,6 @@
  * Time: 6:17 PM
  */
 
-require_once "WithDefault.php";
 
 trait Common
 {
@@ -15,8 +14,17 @@ trait Common
         appendToSql as withDefaultAppend;
     }
 
-    public
-        $maxSize = null;
+    public $maxSize = null;
+
+    public ?bool $unique = null;
+
+    public function __construct(string $name, int $maxSize = null, $default = null, bool $primary = false, bool $nullable = null, bool $unique = null)
+    {
+        parent::__construct($name, $primary, $default, $nullable);
+        $this->maxSize = $maxSize;
+        $this->unique = $unique;
+
+    }
 
     protected function appendToSql(string $sql): string
     {

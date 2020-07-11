@@ -15,7 +15,7 @@ abstract class Column
     public $nullable = false;
     protected bool $primary = false;
 
-    public function __construct(string $name, $primary = false, $default = null, $nullable = false)
+    public function __construct(string $name, bool $primary = false, $default = null, bool $nullable = null)
     {
         $this->name = $name;
         $this->primary = $primary;
@@ -41,7 +41,15 @@ abstract class Column
 
     function getSql(): string
     {
-        return $this->appendToSql("\n\t{$this->name} $this");
+        $name = $this->name;
+
+        $sql = $this->appendToSql("\n\t`$name` $this");
+
+        if ($this->primary) {
+            $sql .= ",\nPRIMARY KEY (`$name`)";
+        }
+
+        return $sql;
     }
 
     protected function appendToSql(string $sql): string

@@ -13,18 +13,17 @@ trait OnCreateCallBack
     /**
      * @param callable[] $onCreateCallback
      */
-    public array $onCreateCallback = [];
+    public array $onCreateCallbacks = [];
 
     public function addOnCreateCallback(callable $callback)
     {
-        array_push($this->onCreateCallback, $callback);
+        array_push($this->onCreateCallbacks, $callback);
     }
-
 
     public function removeOnCreateCallback(callable $callable)
     {
         $res = [];
-        $count = count($callables = $this->onCreateCallback);
+        $count = count($callables = $this->onCreateCallbacks);
 
         for ($i = 0; $i < $count; $i++) {
             if (!($func = $callables[$i]) == $callable) {
@@ -32,6 +31,6 @@ trait OnCreateCallBack
             }
         }
 
-        $this->onCreateCallback = $res;
+        $this->onCreateCallbacks = $res;
     }
 }

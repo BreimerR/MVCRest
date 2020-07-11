@@ -7,8 +7,6 @@
  * Time: 9:33 PM
  */
 
-require_once "functions.php";
-require_once "Column.php";
 
 abstract class Table
 {
@@ -179,7 +177,7 @@ abstract class Table
 
                 array_push(
                     $constraints,
-                    "constraint {$tableName}_{$foreignTable}_{$foreignCol}_fk foreign key ($columnName) references $foreignTable ($foreignCol)"
+                    "FOREIGN KEY (`$columnName`) REFERENCES `$foreignTable` (`$foreignCol`)"
                 );
 
             }

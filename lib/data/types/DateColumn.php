@@ -7,7 +7,6 @@
  * Time: 9:42 PM
  */
 
-require_once "WithDefault.php";
 
 class DateColumn extends Column
 {
@@ -50,4 +49,8 @@ class DateColumn extends Column
         return $this->withDefaultAppend($sql);
     }
 
+    public function __toString()
+    {
+        return "DATE";
+    }
 }

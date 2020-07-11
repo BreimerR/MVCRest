@@ -7,13 +7,8 @@
  * Time: 3:26 PM
  */
 
-class EventsModel extends Model
+
+class EventsModel extends ChamaModel
 {
-
-
-    function create()
-    {
-
-    }
 
 }

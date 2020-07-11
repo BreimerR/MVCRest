@@ -9,3 +9,10 @@ toString
 toSOAP
 toJSON
 toDust
+
+# Features
+Auto update database on database change.
+If there are changes to database sql structure the database 
+framework should update the base database or one could have on 
+create table/model change to cover this.
+Also database integrity does not work right

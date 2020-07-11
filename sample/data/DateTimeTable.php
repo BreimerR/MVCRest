@@ -7,13 +7,13 @@
  * Time: 3:28 PM
  */
 
-class DateTime extends Table
+class DateTimeTable extends Table
 {
 
     static function initColumns(): array
     {
         return [
-            new ID(),
+            new Id(),
             new DateTimeColumn()
         ];
     }
